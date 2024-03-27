@@ -12,14 +12,14 @@ def evaluate_policy(args, env, agent, state_norm):
     times = 3
     evaluate_reward = 0
     for _ in range(times):
-        s = env.reset()
+        s = env.reset()[0]
         if args.use_state_norm:  # During the evaluating,update=False
             s = state_norm(s, update=False)
         done = False
         episode_reward = 0
         while not done:
             a = agent.evaluate(s)  # We use the deterministic policy during the evaluating
-            s_, r, done, _ = env.step(a)
+            s_, r, done, _, _ = env.step(a)
             if args.use_state_norm:
                 s_ = state_norm(s_, update=False)
             episode_reward += r
@@ -33,10 +33,8 @@ def main(args, env_name, number, seed):
     env = gym.make(env_name)
     env_evaluate = gym.make(env_name)  # When evaluating the policy, we need to rebuild an environment
     # Set random seed
-    env.seed(seed)
-    env.action_space.seed(seed)
-    env_evaluate.seed(seed)
-    env_evaluate.action_space.seed(seed)
+    env.reset(seed=seed)
+    env_evaluate.reset(seed=seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
@@ -56,7 +54,7 @@ def main(args, env_name, number, seed):
     agent = PPO_discrete(args)
 
     # Build a tensorboard
-    writer = SummaryWriter(log_dir='runs/PPO_discrete/env_{}_number_{}_seed_{}'.format(env_name, number, seed))
+    writer = SummaryWriter(log_dir=f'logs/PPO_discrete/env_{env_name}_baseline_seed_{seed}')
 
     state_norm = Normalization(shape=args.state_dim)  # Trick 2:state normalization
     if args.use_reward_norm:  # Trick 3:reward normalization
@@ -65,7 +63,7 @@ def main(args, env_name, number, seed):
         reward_scaling = RewardScaling(shape=1, gamma=args.gamma)
 
     while total_steps < args.max_train_steps:
-        s = env.reset()
+        s = env.reset()[0]
         if args.use_state_norm:
             s = state_norm(s)
         if args.use_reward_scaling:
@@ -75,7 +73,7 @@ def main(args, env_name, number, seed):
         while not done:
             episode_steps += 1
             a, a_logprob = agent.choose_action(s)  # Action and the corresponding log probability
-            s_, r, done, _ = env.step(a)
+            s_, r, done, _,  _ = env.step(a)
 
             if args.use_state_norm:
                 s_ = state_norm(s_)
@@ -115,9 +113,9 @@ def main(args, env_name, number, seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Hyperparameter Setting for PPO-discrete")
-    parser.add_argument("--max_train_steps", type=int, default=int(2e5), help=" Maximum number of training steps")
+    parser.add_argument("--max_train_steps", type=int, default=int(1e7), help=" Maximum number of training steps")
     parser.add_argument("--evaluate_freq", type=float, default=5e3, help="Evaluate the policy every 'evaluate_freq' steps")
-    parser.add_argument("--save_freq", type=int, default=20, help="Save frequency")
+    parser.add_argument("--save_freq", type=int, default=1000, help="Save frequency")
     parser.add_argument("--batch_size", type=int, default=2048, help="Batch size")
     parser.add_argument("--mini_batch_size", type=int, default=64, help="Minibatch size")
     parser.add_argument("--hidden_width", type=int, default=64, help="The number of neurons in hidden layers of the neural network")
@@ -128,9 +126,9 @@ if __name__ == '__main__':
     parser.add_argument("--epsilon", type=float, default=0.2, help="PPO clip parameter")
     parser.add_argument("--K_epochs", type=int, default=10, help="PPO parameter")
     parser.add_argument("--use_adv_norm", type=bool, default=True, help="Trick 1:advantage normalization")
-    parser.add_argument("--use_state_norm", type=bool, default=True, help="Trick 2:state normalization")
+    parser.add_argument("--use_state_norm", type=bool, default=False, help="Trick 2:state normalization")
     parser.add_argument("--use_reward_norm", type=bool, default=False, help="Trick 3:reward normalization")
-    parser.add_argument("--use_reward_scaling", type=bool, default=True, help="Trick 4:reward scaling")
+    parser.add_argument("--use_reward_scaling", type=bool, default=False, help="Trick 4:reward scaling")
     parser.add_argument("--entropy_coef", type=float, default=0.01, help="Trick 5: policy entropy")
     parser.add_argument("--use_lr_decay", type=bool, default=True, help="Trick 6:learning rate Decay")
     parser.add_argument("--use_grad_clip", type=bool, default=True, help="Trick 7: Gradient clip")

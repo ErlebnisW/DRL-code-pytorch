@@ -80,16 +80,18 @@ class PPO_discrete:
             self.optimizer_actor = torch.optim.Adam(self.actor.parameters(), lr=self.lr_a)
             self.optimizer_critic = torch.optim.Adam(self.critic.parameters(), lr=self.lr_c)
 
-    def evaluate(self, s):  # When evaluating the policy, we select the action with the highest probability
-        s = torch.unsqueeze(torch.tensor(s, dtype=torch.float), 0)
-        a_prob = self.actor(s).detach().numpy().flatten()
+    def evaluate(self, state):  # When evaluating the policy, we select the action with the highest probability
+        state = np.array(state)
+        state = torch.unsqueeze(torch.from_numpy(state), 0)
+        a_prob = self.actor(state).detach().numpy().flatten()
         a = np.argmax(a_prob)
         return a
 
-    def choose_action(self, s):
-        s = torch.unsqueeze(torch.tensor(s, dtype=torch.float), 0)
+    def choose_action(self, state):
+        state = np.array(state)
+        state = torch.unsqueeze(torch.from_numpy(state), 0)
         with torch.no_grad():
-            dist = Categorical(probs=self.actor(s))
+            dist = Categorical(probs=self.actor(state))
             a = dist.sample()
             a_logprob = dist.log_prob(a)
         return a.numpy()[0], a_logprob.numpy()[0]
